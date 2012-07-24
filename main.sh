@@ -35,7 +35,7 @@ function print()
 
 function main()
 {
-#	setup
+	setup
 	print "$AUTO_LINE_WRAP_ON"
 	print "$AUTO_SCROLL_ON"
 #	print "********* GORRION ***********"

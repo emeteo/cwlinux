@@ -2,4 +2,4 @@
 
 
 serial:	serial.c
-	gcc -o serial serial.c
+	gcc -g -o serial serial.c

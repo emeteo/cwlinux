@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <termios.h>  
+#include "debug.h"
 #include "serial.h"
 
 
@@ -142,12 +143,21 @@ int cw_clear_dsp ( void )
 	return 0;
 }
 
-int cw_auto_key_hold( int on )
+int cw_auto_key_hold( bool on )
 {
 	debug2_print ( ">>>>>> ENTER >>>> %d\n", 0 );
 	cw_cmd ( on ? CW_CONF_AUTO_KEY_HOLD_ON: CW_CONF_AUTO_KEY_HOLD_OFF, NULL );
 	debug2_print ( "<<<< EXIT <<<< %d\n", 0);
 	return 0;
+}
+
+int cw_text_invert ( bool on ) 
+{
+	debug2_print ( ">>>>>> ENTER >>>> %d\n", 0 );
+	cw_cmd ( on ? CW_CONF_TEXT_INV_ON: CW_CONF_TEXT_INV_OFF, NULL );
+	debug2_print ( "<<<< EXIT <<<< %d\n", 0);
+	return 0;
+
 }
 
 int cw_put_txt ( int col, int row, char* txt )

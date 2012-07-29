@@ -1,4 +1,5 @@
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <sys/select.h>
 #include <sys/time.h>
@@ -6,6 +7,8 @@
 #include <unistd.h>
 
 
+#include "debug.h"
+#include "menu.h"
 #include "serial.h"
 
 int main ( int argc, char **argv )
@@ -15,7 +18,6 @@ int main ( int argc, char **argv )
 	int i, j;
 	char firmware[5], model[10];
 	char *result;
-	int progress;
 	int n_read;
 	int do_exit;
 
@@ -25,26 +27,56 @@ int main ( int argc, char **argv )
 	struct timeval tv;
 	int retval;
 	
+	cw_menu *menu1,*menu2,*menu3;
+	cw_menuitem *menuitem;
+	
+
+	
+	
 	do_exit = 0;
-	progress = 0;
 	if ( (serial_fd = open_port ()) < 0) {
 		return -1;
 	}
 
-	cw_auto_key_hold ( 1 /* on */);	
+	cw_auto_key_hold ( true );	
+	cw_text_invert   ( false);	
 
 	if ( ( argc > 1 ) && ( ! strcmp ( argv[1], "--stop" )  ) )
 			cw_clear_dsp ();
 	if ( ( argc > 1 ) && ( ! strcmp ( argv[1], "--start" )  ) )
 			cw_clear_dsp ();
 
-	if ( ( argc == 3  ) && ( ! strcmp ( argv[1], "--progress" ) ) )
-	{
-		progress = atoi ( argv[2] );
-		cw_put_txt ( 0, 0, argv[2] );
-		
-		cw_draw_hbar ( 0, 2, progress );
-	}
+
+	menu1 = cw_new_menu ( "Mi primer menu" );
+	menuitem = cw_new_menuitem ( "Menu 1-menuitem 1", NULL );	
+	cw_add_menuitem ( menuitem, cw_new_menuitem ( "Menu 1 - menuitem 2", NULL ));	
+	cw_add_menuitem ( menuitem, cw_new_menuitem ( "Menu 1 - menuitem 3", NULL ));	
+	cw_add_menuitem ( menuitem, cw_new_menuitem ( "Menu 1 - menuitem 4", NULL ));	
+	cw_add_menuitem ( menuitem, cw_new_menuitem ( "Menu 1 - menuitem 5", NULL ));	
+	cw_add_menuitem ( menuitem, cw_new_menuitem ( "Menu 1 - menuitem 6", NULL ));	
+	cw_menu_add_menuitem ( menu1, menuitem );
+
+	menu2= cw_new_menu( "Mi segundo menu");
+	menuitem = cw_new_menuitem ( "Menu 2-menuitem 1", NULL );	
+	cw_add_menuitem ( menuitem, cw_new_menuitem ( "Menu 2 - menuitem 2", NULL ));	
+	cw_add_menuitem ( menuitem, cw_new_menuitem ( "Menu 2 - menuitem 3", NULL ));	
+	cw_add_menuitem ( menuitem, cw_new_menuitem ( "Menu 2 - menuitem 4", NULL ));	
+	cw_menu_add_menuitem ( menu2, menuitem );
+
+	menu3= cw_new_menu( "Mi tercer menu");
+	menuitem = cw_new_menuitem ( "Menu 3-menuitem 1", NULL );	
+	cw_add_menuitem ( menuitem, cw_new_menuitem ( "Menu 3 - menuitem 2", NULL ));	
+	cw_add_menuitem ( menuitem, cw_new_menuitem ( "Menu 3 - menuitem 3", NULL ));	
+	cw_add_menuitem ( menuitem, cw_new_menuitem ( "Menu 3 - menuitem 4", NULL ));	
+	cw_menu_add_menuitem ( menu3, menuitem );
+
+	cw_add_menu( menu1, menu2 );
+	cw_add_menu( menu1, menu3 );
+
+	debug2_print( "%s\n", menu1->name );
+
+	cw_display_menu ( menu1 );
+	
 
 	FD_ZERO ( &rfds );
 	FD_SET ( serial_fd, &rfds );
@@ -72,17 +104,21 @@ int main ( int argc, char **argv )
 					if  ( buf[0] >= 65  && buf[0] <=70 ) {
 						switch ( buf[0] )
 						{
-							case 'A': break;
-							case 'C': progress --;
+							case 'A': 
+								cw_select_prev_menuitem( menu1 );
+								break;
+							case 'B':
+								cw_select_next_menuitem ( menu1 );
+								break;
+
+							case 'C': 
 								  break;
-							case 'D': progress ++;
+							case 'D': 
 								 break;
 							case 'F': do_exit = 1;
 								break;
 							default: break;
 						}
-						cw_draw_hbar ( 0, 2, progress );
-						
 						printf ( "%d - %s \n", buf[0], buf);
 					} else
 						printf ( "Received bad keys: %d - %s \n", buf[0], buf);
@@ -160,6 +196,7 @@ int main ( int argc, char **argv )
 
 	debug2_print ( "<<<<< EXIT <<<<<< %d\n", 0 );
 #endif
+	cw_destroy_menu_list ( menu1 );
 	cw_clear_dsp ();
 	close_port( serial_fd );
 

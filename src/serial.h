@@ -1,11 +1,4 @@
-
-
-#define DEBUG 1
-#define debug2_print(fmt, ...) \
-        do { if (DEBUG) fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__, \
-                                __LINE__, __func__, __VA_ARGS__); } while (0)
-#define debug_print(fmt, ...) \
-        do { if (DEBUG) fprintf(stderr, fmt,  __VA_ARGS__); } while (0)
+#include <stdbool.h>
 
 #define BAUDRATE B19200
 #define SERIALDEVICE "/dev/ttyUSB0"
@@ -46,7 +39,9 @@ void close_port ( int fd );
 
 int cw_clear_dsp ( void );
 
-int cw_auto_key_hold( int on );
+int cw_auto_key_hold( bool on );
+
+int cw_text_invert ( bool on );
 
 int cw_put_txt ( int col, int row, char* txt );
 

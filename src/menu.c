@@ -175,6 +175,7 @@ void cw_destroy_menu_list ( cw_menu* menu )
 
 void cw_menu_add_menuitem ( cw_menu* menu, cw_menuitem * item )
 {
+	cw_menuitem* it;
 	if ( menu == NULL || item == NULL ) return;
 
 	if ( menu->items == NULL ) {
@@ -183,7 +184,13 @@ void cw_menu_add_menuitem ( cw_menu* menu, cw_menuitem * item )
 		cw_add_menuitem ( menu->items, item );
 	}
 
-	item->parent = menu;
+	it = item;	
+	while( it != NULL ) {
+		debug2_print ( "Setting parent to %s\n",  item->name );
+		it->parent = menu;
+		it = it->next;
+		debug2_print ( "Selec next item%s\n", it ? it->name: "NULL" );
+	}
 
 	return;
 }
@@ -238,6 +245,19 @@ void cw_select_next_menuitem ( cw_menu* menu )
 	}
 	cw_display_menu ( menu );
 }
+
+cw_menu* cw_next_menu( cw_menu * menu )
+{
+	if ( menu == NULL ) return NULL;	
+	return  menu->next;
+}
+
+cw_menu* cw_prev_menu( cw_menu * menu )
+{
+	if ( menu == NULL ) return NULL;	
+	return  menu->prev;
+}
+
 
 void cw_select_prev_menuitem( cw_menu* menu )
 {

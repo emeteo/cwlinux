@@ -52,6 +52,9 @@ void cw_menu_add_menuitem ( cw_menu* menu, cw_menuitem * item );
 
 
 void cw_display_menu ( cw_menu* menu );
+cw_menu* cw_next_menu( cw_menu * menu );
+cw_menu* cw_prev_menu( cw_menu * menu );
+
 void cw_select_prev_menuitem( cw_menu* menu );
 void cw_select_next_menuitem ( cw_menu* menu );
 

@@ -11,6 +11,15 @@
 #include "menu.h"
 #include "serial.h"
 
+
+void menu_callback ( void )
+{
+	cw_clear_dsp ();
+	cw_put_txt ( 1,1, "Menu callback" );
+
+	return;
+}
+
 int main ( int argc, char **argv )
 {
 	int res;
@@ -27,8 +36,8 @@ int main ( int argc, char **argv )
 	struct timeval tv;
 	int retval;
 	
-	cw_menu *menu1,*menu2,*menu3;
-	cw_menuitem *menuitem;
+	cw_menu *menu1,*menu2,*menu3, *menu, *next_menu;
+	cw_menuitem *menuitem, *submenuitem;
 	
 
 	
@@ -46,22 +55,28 @@ int main ( int argc, char **argv )
 	if ( ( argc > 1 ) && ( ! strcmp ( argv[1], "--start" )  ) )
 			cw_clear_dsp ();
 
+	/* Build a submenu */
+	menu2= cw_new_menu( "Mi segundo menu");
+	cw_menu_add_menuitem ( menu2, cw_new_menuitem ( "Submenu 2 - item 1", NULL ) );
+	cw_menu_add_menuitem ( menu2, cw_new_menuitem ( "submenu 2 - item 2", NULL ));	
+	cw_menu_add_menuitem ( menu2, cw_new_menuitem ( "submenu 2 - item 3", NULL ));	
+	cw_menu_add_menuitem ( menu2, cw_new_menuitem ( "submenu 2 - item 4", NULL ));	
+
 
 	menu1 = cw_new_menu ( "Mi primer menu" );
 	menuitem = cw_new_menuitem ( "Menu 1-menuitem 1", NULL );	
 	cw_add_menuitem ( menuitem, cw_new_menuitem ( "Menu 1 - menuitem 2", NULL ));	
-	cw_add_menuitem ( menuitem, cw_new_menuitem ( "Menu 1 - menuitem 3", NULL ));	
-	cw_add_menuitem ( menuitem, cw_new_menuitem ( "Menu 1 - menuitem 4", NULL ));	
+	submenuitem = cw_new_menuitem ( "Menu 1 - menuitem 3", NULL );
+		/* Menu2 is a submenu of menuitem3 */
+	cw_add_submenuitem ( submenuitem, menu2 );
+
+	cw_add_menuitem ( menuitem, submenuitem );	
+	cw_add_menuitem ( menuitem, cw_new_menuitem ( "Call - menuitem 4", menu_callback));	
 	cw_add_menuitem ( menuitem, cw_new_menuitem ( "Menu 1 - menuitem 5", NULL ));	
+	submenuitem = cw_new_menuitem ( "Menu 1 - menuitem 5", NULL );
 	cw_add_menuitem ( menuitem, cw_new_menuitem ( "Menu 1 - menuitem 6", NULL ));	
 	cw_menu_add_menuitem ( menu1, menuitem );
 
-	menu2= cw_new_menu( "Mi segundo menu");
-	menuitem = cw_new_menuitem ( "Menu 2-menuitem 1", NULL );	
-	cw_add_menuitem ( menuitem, cw_new_menuitem ( "Menu 2 - menuitem 2", NULL ));	
-	cw_add_menuitem ( menuitem, cw_new_menuitem ( "Menu 2 - menuitem 3", NULL ));	
-	cw_add_menuitem ( menuitem, cw_new_menuitem ( "Menu 2 - menuitem 4", NULL ));	
-	cw_menu_add_menuitem ( menu2, menuitem );
 
 	menu3= cw_new_menu( "Mi tercer menu");
 	menuitem = cw_new_menuitem ( "Menu 3-menuitem 1", NULL );	
@@ -70,12 +85,15 @@ int main ( int argc, char **argv )
 	cw_add_menuitem ( menuitem, cw_new_menuitem ( "Menu 3 - menuitem 4", NULL ));	
 	cw_menu_add_menuitem ( menu3, menuitem );
 
-	cw_add_menu( menu1, menu2 );
+//	cw_add_menu( menu1, menu2 );
 	cw_add_menu( menu1, menu3 );
 
 	debug2_print( "%s\n", menu1->name );
 
-	cw_display_menu ( menu1 );
+	menu = menu1;
+
+	cw_clear_dsp ();
+	cw_display_menu ( menu );
 	
 
 	FD_ZERO ( &rfds );
@@ -102,20 +120,52 @@ int main ( int argc, char **argv )
 				while ( (n_read =read ( serial_fd, buf, 1 ) ) > 0 ) {
 					buf[1] = '\0';
 					if  ( buf[0] >= 65  && buf[0] <=70 ) {
+						/* TODO: pass to a function and handle the key 
+						  in function of the context we are */
 						switch ( buf[0] )
 						{
 							case 'A': 
-								cw_select_prev_menuitem( menu1 );
+								cw_select_prev_menuitem( menu );
 								break;
 							case 'B':
-								cw_select_next_menuitem ( menu1 );
+								cw_select_next_menuitem ( menu );
 								break;
 
 							case 'C': 
+								next_menu = cw_prev_menu ( menu );
+								if ( next_menu != NULL ) menu = next_menu;
+								cw_clear_dsp ();
+								cw_display_menu ( menu );
 								  break;
 							case 'D': 
+								next_menu = cw_next_menu ( menu );
+								if ( next_menu != NULL ) menu = next_menu;
+								cw_clear_dsp ();
+								cw_display_menu ( menu );
+
 								 break;
-							case 'F': do_exit = 1;
+							case 'E':
+								if ( menu->selected != NULL )
+								if  ( menu->selected->type == CW_MENU_SUBMENU )
+								{	
+									debug2_print ( "%s\n", "Submenu selected" );
+									next_menu =  menu->selected->submenu;
+									if ( next_menu != NULL) menu = next_menu;
+									cw_clear_dsp ();
+									cw_display_menu ( menu );
+		
+								}else
+									if ( menu->selected->cw_function_menu != NULL ) 
+										menu->selected->cw_function_menu ();
+								break;
+							case 'F': 
+								if ( menu->parent == NULL || menu->parent->parent == NULL) do_exit = 1;
+								else {
+									next_menu = menu->parent->parent;
+									if ( next_menu != NULL ) menu = next_menu;
+									cw_clear_dsp ();
+									cw_display_menu ( menu );
+								}
 								break;
 							default: break;
 						}

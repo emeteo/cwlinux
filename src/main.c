@@ -18,6 +18,7 @@
 void menu_callback ( void )
 {
 	cw_clear_dsp ();
+
 	cw_put_txt ( 1,1, "Menu callback" );
 
 	return;
@@ -54,7 +55,22 @@ int IncDecAlsaMasterVolume(int step)
 
     snd_mixer_close(handle);
 
-    return (volume+step)*(max-min)/100;
+    int vol = ((volume+step-min)*100) /(max-min);
+    debug2_print( "****** Volumen %d\n", vol);
+    return vol;
+}
+
+
+void displayVolume ( int vol)
+{
+	char txt[255];	
+
+	sprintf(txt,"%d %%",vol);
+	cw_put_txt ( 1 , 1, txt);
+	cw_draw_hbar( 2, 2, ( vol*120)/100);
+	printf("enviando texto : %s.\n", txt);
+
+	return;
 }
 
 int main ( int argc, char **argv )
@@ -92,6 +108,7 @@ int main ( int argc, char **argv )
 	if ( ( argc > 1 ) && ( ! strcmp ( argv[1], "--start" )  ) )
 			cw_clear_dsp ();
 
+#if 0
 	/* Build a submenu */
 	menu2= cw_new_menu( "Mi segundo menu");
 	cw_menu_add_menuitem ( menu2, cw_new_menuitem ( "Submenu 2 - item 1", NULL ) );
@@ -129,13 +146,14 @@ int main ( int argc, char **argv )
 
 	menu = menu1;
 
+#endif
 	cw_clear_dsp ();
-	cw_display_menu ( menu );
+//	cw_display_menu ( menu );
 
 	/* Config vbar */
 	cw_conf_vbar(1);
 	currentVolume=IncDecAlsaMasterVolume(0);
-	cw_draw_vbar( 2, ( currentVolume *32)/100);
+	displayVolume(currentVolume);
 
 	/* Setup Serial port */
 
@@ -169,33 +187,35 @@ int main ( int argc, char **argv )
 							case 'A': /* up */ 
 								currentVolume = IncDecAlsaMasterVolume(+100);
 
-								cw_select_prev_menuitem( menu );
+								//cw_select_prev_menuitem( menu );
 								break;
 							case 'B': /* down */
 								currentVolume=IncDecAlsaMasterVolume(-100);
 
-								cw_select_next_menuitem ( menu );
+								//cw_select_next_menuitem ( menu );
 								break;
 
 							case 'C': /* Left */
 
 								currentVolume=IncDecAlsaMasterVolume(-400);
 
-								next_menu = cw_prev_menu ( menu );
-								if ( next_menu != NULL ) menu = next_menu;
-								cw_clear_dsp ();
-								cw_display_menu ( menu );
+								//next_menu = cw_prev_menu ( menu );
+								//if ( next_menu != NULL ) menu = next_menu;
+								//cw_clear_dsp ();
+								//cw_display_menu ( menu );
 								  break;
 							case 'D': /* Right */ 
 
 								currentVolume=IncDecAlsaMasterVolume(+400);
-								next_menu = cw_next_menu ( menu );
-								if ( next_menu != NULL ) menu = next_menu;
-								cw_clear_dsp ();
-								cw_display_menu ( menu );
+
+								//next_menu = cw_next_menu ( menu );
+								//if ( next_menu != NULL ) menu = next_menu;
+								//cw_clear_dsp ();
+								//cw_display_menu ( menu );
 
 								 break;
 							case 'E': /* Selected */
+#if 0
 								if ( menu && menu->selected != NULL )
 								if  ( menu->selected->type == CW_MENU_SUBMENU )
 								{	
@@ -208,8 +228,10 @@ int main ( int argc, char **argv )
 								}else
 									if ( menu->selected->cw_function_menu != NULL ) 
 										menu->selected->cw_function_menu ();
+#endif
 								break;
 							case 'F': 
+#if 0
 								if ( menu->parent == NULL || menu->parent->parent == NULL) do_exit = 0;
 								else {
 									next_menu = menu->parent->parent;
@@ -217,14 +239,15 @@ int main ( int argc, char **argv )
 									cw_clear_dsp ();
 									cw_display_menu ( menu );
 								}
+#endif
 								break;
 							default: break;
 						}
+						displayVolume(currentVolume);
 						printf ( "%d - %s \n", buf[0], buf);
 					} else
 						printf ( "Received bad keys: %d - %s \n", buf[0], buf);
 
-					cw_draw_vbar( 2, ( currentVolume *32)/100);
 				}
 			}
 		}

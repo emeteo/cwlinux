@@ -1,9 +1,10 @@
+/* Mario Teijeiro */
 #include <stdbool.h>
 
 typedef enum { CW_MENU_ACTION, CW_MENU_SUBMENU} cw_menuitem_type;
 
 
-/* Is a entry of a menu. it can be of serveral types:
+/* It is an entry of a menu. it can be of serveral types:
 	* ACTION : Normal entry menu. Represents an action
 	* SUBMENU 
 */
@@ -36,7 +37,7 @@ struct cw_menu{
 
 
 
-cw_menuitem* cw_new_menuitem ( char* name, void (*callback)(void) );
+cw_menuitem* cw_new_menuitem ( const char* name, void (*callback)(void) );
 void cw_add_menuitem ( cw_menuitem* a, cw_menuitem* b );
 void cw_destroy_menuitem ( cw_menuitem* item );
 void cw_destroy_menuitem_list ( cw_menuitem* item );

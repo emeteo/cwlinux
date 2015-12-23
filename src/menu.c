@@ -1,3 +1,4 @@
+/* Mario Teijeiro */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,7 +11,7 @@
 
 
 
-cw_menuitem* cw_new_menuitem ( char* name, void (*callback)(void) )
+cw_menuitem* cw_new_menuitem ( const char* name, void (*callback)(void) )
 {
 	cw_menuitem *menuitem;
 	menuitem = ( cw_menuitem* ) malloc ( sizeof( cw_menuitem ));	

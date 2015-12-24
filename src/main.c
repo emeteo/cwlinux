@@ -51,16 +51,78 @@ int cw_mpd_send_stop(void)
 {
         if ( (mpd_conn == NULL) && (cw_mpd_connect() != 0 )) return -1;
         
+        mpd_command_list_begin(mpd_conn, true);
         mpd_send_stop(mpd_conn);
+        mpd_command_list_end(mpd_conn);
+        
         return 0;
 }
 int cw_mpd_send_play(void)
 {
         if ( (mpd_conn == NULL) && (cw_mpd_connect() != 0 )) return -1;
-        
+        mpd_command_list_begin(mpd_conn, true);
         mpd_send_play(mpd_conn);
+        mpd_command_list_end(mpd_conn);
         return 0;
 }
+
+int cw_mpd_status(void)
+{
+    struct mpd_status * status;
+    struct mpd_song *song;
+    if ( (mpd_conn == NULL) && (cw_mpd_connect() != 0 )) return -1;
+    
+    mpd_command_list_begin(mpd_conn, true);
+    mpd_send_status(mpd_conn);
+    mpd_send_current_song(mpd_conn);
+    mpd_command_list_end(mpd_conn);
+    
+    status = mpd_recv_status(mpd_conn);
+    if (status == NULL ) 
+    {
+       printf("Can't recive status from mpd\n");
+       return -1;
+    }
+    
+    
+    
+    
+    mpd_status_free(status);
+    return 0;
+}
+
+/* Return the volume set */
+int cw_mpd_IncDecVolume(int step)
+{
+    struct mpd_status * status;
+    int new_volume;
+    unsigned volume;
+    
+    if ( (mpd_conn == NULL) && (cw_mpd_connect() != 0 )) return -1;
+    
+    status = mpd_run_status(mpd_conn);
+    
+    if (status == NULL ) 
+    {
+       printf("Can't recive status from mpd\n");
+       return -1;
+    }
+    
+    volume = mpd_status_get_volume( status );
+    
+    new_volume = volume + step;
+    if ( new_volume > 100 ) new_volume = 100;
+    if ( new_volume < 0 ) new_volume = 0;
+
+    mpd_run_set_volume( mpd_conn, (unsigned)new_volume );
+    
+    mpd_status_free(status);
+    return volume;
+    
+    debug2_print( "****** Volumen %d\n", new_volume);
+    return new_volume;
+}
+
 
 
 void print_screen_1 (void)
@@ -90,16 +152,16 @@ void print_screen_1 (void)
 
 
 void onExpireTimerScreen ( sigval_t value );
-void onExpireTimerVolume ( sigval_t value );
+void onExpireTimerTransient ( sigval_t value );
 
 #define MAX_TIMERS 2
 #define TIMER_SCREEN 0
-#define TIMER_VOLUME 1
+#define TIMER_TRANSIENT 1
 
 
 timer_t timer_ids[MAX_TIMERS];
 
-void (*timer_functions[MAX_TIMERS]) (union sigval) = { onExpireTimerScreen,onExpireTimerVolume};
+void (*timer_functions[MAX_TIMERS]) (union sigval) = { onExpireTimerScreen,onExpireTimerTransient};
 
 
 void createTimers(void)
@@ -155,10 +217,10 @@ void onExpireTimerScreen ( sigval_t value )
     return;   
 }
 
-void onExpireTimerVolume ( sigval_t value )
+void onExpireTimerTransient ( sigval_t value )
 {
     debug2_print("onExpireTimerScreen with value %d\n", value);
-    cancelTimer ( timer_ids[TIMER_VOLUME]);
+    cancelTimer ( timer_ids[TIMER_TRANSIENT]);
     launchTimer ( timer_ids[TIMER_SCREEN], 1000, 1000);
     ClearScreen=1;
     return;   
@@ -199,6 +261,14 @@ int IncDecAlsaMasterVolume(int step)
     return vol;
 }
 
+void displayTransientMsg (char * txt )
+{
+        cw_clear_dsp();
+        cw_put_txt(1,1,txt);
+        debug2_print("Transient msg: %s\n", txt);
+        cancelTimer(timer_ids[TIMER_SCREEN]);
+        launchTimer (timer_ids[TIMER_TRANSIENT], 3000,1000);
+}
 
 void displayVolume ( int vol)
 {
@@ -207,9 +277,9 @@ void displayVolume ( int vol)
 	sprintf(txt,"%d %%",vol);
 	cw_put_txt ( 1 , 1, txt);
 	cw_draw_hbar( 2, 2, ( vol*120)/100);
-	printf("enviando texto : %s.\n", txt);
+	debug2_print("enviando texto : %s.\n", txt);
         cancelTimer(timer_ids[TIMER_SCREEN]);
-        launchTimer (timer_ids[TIMER_VOLUME], 3000,1000);
+        launchTimer (timer_ids[TIMER_TRANSIENT], 3000,1000);
         
 	return;
 }
@@ -250,7 +320,7 @@ int main ( int argc, char **argv )
 	/* Timer to display de screens */
         launchTimer (timer_ids[TIMER_SCREEN], 1000,1000);
         
-	currentVolume=IncDecAlsaMasterVolume(0);
+	currentVolume=cw_mpd_IncDecVolume(0);
 	
         displayVolume(currentVolume);
 
@@ -283,26 +353,28 @@ int main ( int argc, char **argv )
 						switch ( buf[0] )
 						{
 							case 'A': /* up */ 
-								currentVolume = IncDecAlsaMasterVolume(+100);
+								currentVolume = cw_mpd_IncDecVolume(+100);
 
 								break;
 							case 'B': /* down */
-								currentVolume=IncDecAlsaMasterVolume(-100);
+								currentVolume=cw_mpd_IncDecVolume(-100);
 								break;
 
 							case 'C': /* Left */
 
-								currentVolume=IncDecAlsaMasterVolume(-400);
+								currentVolume=cw_mpd_IncDecVolume(-400);
 
 								  break;
 							case 'D': /* Right */ 
 
-								currentVolume=IncDecAlsaMasterVolume(+400);
+								currentVolume=cw_mpd_IncDecVolume(+400);
 								 break;
 							case 'E': /* Selected */
-
+                                                                displayTransientMsg("Playing...");
+                                                                cw_mpd_send_play();
 								break;
 							case 'F': /* X */
+                                                                displayTransientMsg("Stopping...");
                                                                 cw_mpd_send_stop();
 
 								break;
@@ -318,6 +390,7 @@ int main ( int argc, char **argv )
 		}
 	}
         deleteTimers();
+        cw_mpd_disconnect();        
 	cw_clear_dsp ();
 	close_port( serial_fd );
 

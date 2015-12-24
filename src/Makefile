@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-I. -Wall
 IDIR=.
-LDFLAGS=-lasound -lrt
+LDFLAGS=-lasound -lrt -l mpdclient
 SOURCES= debug.h main.c menu.c menu.h serial.c serial.h
 OBJ= $(SOURCES: .cpp=.o)
 EXE=cwlinux

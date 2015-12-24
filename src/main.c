@@ -14,6 +14,9 @@
 #include <signal.h>
 #include <time.h>
 
+/* mpdclient */
+#include <mpd/client.h>
+
 #include "debug.h"
 #include "menu.h"
 #include "serial.h"
@@ -26,6 +29,38 @@ int ClearScreen;
 void print_screen_1 (void);
 
 void (*print_screens [MAX_SCREENS] ) (void) = {print_screen_1};
+
+static struct mpd_connection *mpd_conn=NULL;
+
+int cw_mpd_connect(void)
+{
+    mpd_conn = mpd_connection_new("localhost", 6600, 0);
+    if ( mpd_conn == NULL){
+        printf("Can't connect to mpd\n");
+        return -1;
+    }
+    return 0 ;
+}
+void cw_mpd_disconnect(void)
+{
+        mpd_connection_free( mpd_conn);
+        mpd_conn = NULL;
+}
+
+int cw_mpd_send_stop(void)
+{
+        if ( (mpd_conn == NULL) && (cw_mpd_connect() != 0 )) return -1;
+        
+        mpd_send_stop(mpd_conn);
+        return 0;
+}
+int cw_mpd_send_play(void)
+{
+        if ( (mpd_conn == NULL) && (cw_mpd_connect() != 0 )) return -1;
+        
+        mpd_send_play(mpd_conn);
+        return 0;
+}
 
 
 void print_screen_1 (void)
@@ -267,7 +302,8 @@ int main ( int argc, char **argv )
 							case 'E': /* Selected */
 
 								break;
-							case 'F': 
+							case 'F': /* X */
+                                                                cw_mpd_send_stop();
 
 								break;
 							default: break;

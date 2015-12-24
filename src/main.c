@@ -50,19 +50,18 @@ void cw_mpd_disconnect(void)
 int cw_mpd_send_stop(void)
 {
         if ( (mpd_conn == NULL) && (cw_mpd_connect() != 0 )) return -1;
-        
-        mpd_command_list_begin(mpd_conn, true);
-        mpd_send_stop(mpd_conn);
-        mpd_command_list_end(mpd_conn);
+    
+        mpd_run_stop(mpd_conn);
+    
         
         return 0;
 }
 int cw_mpd_send_play(void)
 {
         if ( (mpd_conn == NULL) && (cw_mpd_connect() != 0 )) return -1;
-        mpd_command_list_begin(mpd_conn, true);
-        mpd_send_play(mpd_conn);
-        mpd_command_list_end(mpd_conn);
+        
+        mpd_run_play(mpd_conn);
+        
         return 0;
 }
 

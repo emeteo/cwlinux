@@ -9,30 +9,109 @@
 #include <alsa/asoundlib.h>
 #include <alsa/mixer.h>
 
+/* includes for timers */
+#include <signal.h>
+#include <time.h>
 
 #include "debug.h"
 #include "menu.h"
 #include "serial.h"
 
+// Numero de pantalla que se esta mostrando
+int DisplayedScreen;
+int ClearScreen=1;
 
-void menu_callback ( void )
+void print_screen_1 (void)
 {
-	cw_clear_dsp ();
+    static int value =0;
+    value = value +1;
+    if (ClearScreen )
+        cw_clear_dsp();
+    cw_put_txt( 2, 2, "SCREEN 1");
+    ClearScreen=0;
+}
 
-	cw_put_txt ( 1,1, "Menu callback" );
 
-	return;
+
+void onExpireTimerScreen ( sigval_t value );
+void onExpireTimerVolume ( sigval_t value );
+
+#define MAX_TIMERS 2
+#define TIMER_SCREEN 0
+#define TIMER_VOLUME 1
+
+    timer_t timer_ids[MAX_TIMERS];
+    void (*timer_functions[MAX_TIMERS]) (union sigval) = { onExpireTimerScreen,onExpireTimerVolume};
+void createTimers(void)
+{
+    int i;
+    struct sigevent sevp;
+    timer_t timerid;
+    
+    sevp.sigev_notify = SIGEV_THREAD;
+    
+    sevp.sigev_notify_attributes = NULL;
+    
+    for (i=0; i < MAX_TIMERS; i++)
+    {
+        sevp.sigev_notify_function = timer_functions[i];
+        sevp.sigev_value.sival_int = i;
+        timer_create( CLOCK_REALTIME,  &sevp, & (timer_ids  [i]));
+    }
+}
+
+void deleteTimers (void )
+{
+    timer_delete( timer_ids[0] );
+}
+
+void launchTimer( timer_t id, int msecs, int interval )
+{
+        struct itimerspec spec;
+        
+        spec.it_interval.tv_sec     = interval / 1000;
+        spec.it_interval.tv_nsec    = interval % 1000;
+        spec.it_value.tv_sec        = msecs / 1000 ;
+        spec.it_value.tv_nsec       = msecs % 1000;
+        
+        if ( timer_settime(id, CLOCK_REALTIME , &spec, NULL) !=0) 
+            debug2_print ( "failure timer_settime: %d - %d\n", msecs, interval);
+        else
+            debug2_print ( "timer_settime OK %d - %d \n", msecs, interval );
+        return;
+}
+
+void cancelTimer ( timer_t id )
+{
+    launchTimer (id, 0, 0);
+    return;
+}
+
+void onExpireTimerScreen ( sigval_t value )
+{
+
+    debug2_print("onExpireTimerScreen with value %d\n", value);
+    print_screen_1();
+    return;   
+}
+
+void onExpireTimerVolume ( sigval_t value )
+{
+    debug2_print("onExpireTimerScreen with value %d\n", value);
+    cancelTimer ( timer_ids[TIMER_VOLUME]);
+    launchTimer ( timer_ids[TIMER_SCREEN], 1000, 1000);
+    ClearScreen=1;
+    return;   
 }
 
 /* Return the volume set */
-
 int IncDecAlsaMasterVolume(int step)
 {
     long min, max, volume;
     snd_mixer_t *handle;
     snd_mixer_selem_id_t *sid;
     const char *card = "default";
-    const char *selem_name = "PCM";
+    const char *selem_name = "Master";
 
     snd_mixer_open(&handle, 0);
     snd_mixer_attach(handle, card);
@@ -69,33 +148,27 @@ void displayVolume ( int vol)
 	cw_put_txt ( 1 , 1, txt);
 	cw_draw_hbar( 2, 2, ( vol*120)/100);
 	printf("enviando texto : %s.\n", txt);
-
+        cancelTimer(timer_ids[TIMER_SCREEN]);
+        launchTimer (timer_ids[TIMER_VOLUME], 5000,1000);
+        
 	return;
 }
 
 int main ( int argc, char **argv )
 {
-	int res;
-	char buf[255];
-	int i, j;
-	char firmware[5], model[10];
-	char *result;
-	int n_read;
-	int do_exit;
 
+        char buf[255];
 	int serial_fd;
-
+        int do_exit = 0;
 	fd_set rfds;
 	struct timeval tv;
 	int retval;
-	
-	cw_menu *menu1,*menu2,*menu3, *menu, *next_menu;
-	cw_menuitem *menuitem, *submenuitem;
+        int n_read;
 
 	int currentVolume;
 	
-	
-	do_exit = 0;
+        
+        /* Open the serial port */
 	if ( (serial_fd = open_port ()) < 0) {
 		return -1;
 	}
@@ -103,57 +176,22 @@ int main ( int argc, char **argv )
 	cw_auto_key_hold ( true );	
 	cw_text_invert   ( false);	
 
-	if ( ( argc > 1 ) && ( ! strcmp ( argv[1], "--stop" )  ) )
-			cw_clear_dsp ();
-	if ( ( argc > 1 ) && ( ! strcmp ( argv[1], "--start" )  ) )
-			cw_clear_dsp ();
 
-#if 0
-	/* Build a submenu */
-	menu2= cw_new_menu( "Mi segundo menu");
-	cw_menu_add_menuitem ( menu2, cw_new_menuitem ( "Submenu 2 - item 1", NULL ) );
-	cw_menu_add_menuitem ( menu2, cw_new_menuitem ( "submenu 2 - item 2", NULL ));	
-	cw_menu_add_menuitem ( menu2, cw_new_menuitem ( "submenu 2 - item 3", NULL ));	
-	cw_menu_add_menuitem ( menu2, cw_new_menuitem ( "submenu 2 - item 4", NULL ));	
-
-
-	menu1 = cw_new_menu ( "Mi primer menu" );
-	menuitem = cw_new_menuitem ( "Menu 1-menuitem 1", NULL );	
-	cw_add_menuitem ( menuitem, cw_new_menuitem ( "Menu 1 - menuitem 2", NULL ));	
-	submenuitem = cw_new_menuitem ( "Menu 1 - menuitem 3", NULL );
-		/* Menu2 is a submenu of menuitem3 */
-	cw_add_submenuitem ( submenuitem, menu2 );
-
-	cw_add_menuitem ( menuitem, submenuitem );	
-	cw_add_menuitem ( menuitem, cw_new_menuitem ( "Call - menuitem 4", menu_callback));	
-	cw_add_menuitem ( menuitem, cw_new_menuitem ( "Menu 1 - menuitem 5", NULL ));	
-	submenuitem = cw_new_menuitem ( "Menu 1 - menuitem 5", NULL );
-	cw_add_menuitem ( menuitem, cw_new_menuitem ( "Menu 1 - menuitem 6", NULL ));	
-	cw_menu_add_menuitem ( menu1, menuitem );
-
-
-	menu3= cw_new_menu( "Mi tercer menu");
-	menuitem = cw_new_menuitem ( "Menu 3-menuitem 1", NULL );	
-	cw_add_menuitem ( menuitem, cw_new_menuitem ( "Menu 3 - menuitem 2", NULL ));	
-	cw_add_menuitem ( menuitem, cw_new_menuitem ( "Menu 3 - menuitem 3", NULL ));	
-	cw_add_menuitem ( menuitem, cw_new_menuitem ( "Menu 3 - menuitem 4", NULL ));	
-	cw_menu_add_menuitem ( menu3, menuitem );
-
-//	cw_add_menu( menu1, menu2 );
-	cw_add_menu( menu1, menu3 );
-
-	debug2_print( "%s\n", menu1->name );
-
-	menu = menu1;
-
-#endif
 	cw_clear_dsp ();
-//	cw_display_menu ( menu );
 
 	/* Config vbar */
 	cw_conf_vbar(1);
+        /* Start with the screen 0 */
+        DisplayedScreen =0;
+	/* Create the timers*/
+        createTimers();
+        
+	/* Timer to display de screens */
+        launchTimer (timer_ids[TIMER_SCREEN], 1000,1000);
+        
 	currentVolume=IncDecAlsaMasterVolume(0);
-	displayVolume(currentVolume);
+	
+        displayVolume(currentVolume);
 
 	/* Setup Serial port */
 
@@ -176,7 +214,6 @@ int main ( int argc, char **argv )
 			break;
 		} else if ( retval ) {
 			if ( FD_ISSET ( serial_fd, &rfds ) ) {
-				
 				while ( (n_read =read ( serial_fd, buf, 1 ) ) > 0 ) {
 					buf[1] = '\0';
 					if  ( buf[0] >= 65  && buf[0] <=70 ) {
@@ -187,59 +224,25 @@ int main ( int argc, char **argv )
 							case 'A': /* up */ 
 								currentVolume = IncDecAlsaMasterVolume(+100);
 
-								//cw_select_prev_menuitem( menu );
 								break;
 							case 'B': /* down */
 								currentVolume=IncDecAlsaMasterVolume(-100);
-
-								//cw_select_next_menuitem ( menu );
 								break;
 
 							case 'C': /* Left */
 
 								currentVolume=IncDecAlsaMasterVolume(-400);
 
-								//next_menu = cw_prev_menu ( menu );
-								//if ( next_menu != NULL ) menu = next_menu;
-								//cw_clear_dsp ();
-								//cw_display_menu ( menu );
 								  break;
 							case 'D': /* Right */ 
 
 								currentVolume=IncDecAlsaMasterVolume(+400);
-
-								//next_menu = cw_next_menu ( menu );
-								//if ( next_menu != NULL ) menu = next_menu;
-								//cw_clear_dsp ();
-								//cw_display_menu ( menu );
-
 								 break;
 							case 'E': /* Selected */
-#if 0
-								if ( menu && menu->selected != NULL )
-								if  ( menu->selected->type == CW_MENU_SUBMENU )
-								{	
-									debug2_print ( "%s\n", "Submenu selected" );
-									next_menu =  menu->selected->submenu;
-									if ( next_menu != NULL) menu = next_menu;
-									cw_clear_dsp ();
-									cw_display_menu ( menu );
-		
-								}else
-									if ( menu->selected->cw_function_menu != NULL ) 
-										menu->selected->cw_function_menu ();
-#endif
+
 								break;
 							case 'F': 
-#if 0
-								if ( menu->parent == NULL || menu->parent->parent == NULL) do_exit = 0;
-								else {
-									next_menu = menu->parent->parent;
-									if ( next_menu != NULL ) menu = next_menu;
-									cw_clear_dsp ();
-									cw_display_menu ( menu );
-								}
-#endif
+
 								break;
 							default: break;
 						}
@@ -252,77 +255,7 @@ int main ( int argc, char **argv )
 			}
 		}
 	}
-
-	
-#if 0
-
-	result=cw_cmd ( CW_CMD_FW_VERSION, NULL );
-	if ( result ) {
-		sprintf( firmware, "%d.%d", result[0],result[1]);
-	}
-	result=cw_cmd ( CW_CMD_MODEL, NULL );
-	if ( result ) {
-		sprintf( model, "%d%d", result[0],result[1]);
-	}
-
-
-	cw_cmd ( CW_CMD_CLEAR_DSP, NULL );
-	/* We ned to clear DSP was finished */
-	usleep(100000); 
-
-	sprintf( buf, "Firmware: %s", firmware );
-	cw_put_txt ( 0, 0, buf );
-
-	sprintf( buf, "Model: %s", model);
-	cw_put_txt ( 0, 1, buf );
-
-	cw_conf_vbar ( 0 ); 
-	cw_draw_hbar ( 0, 2, 20 );
-
-#endif
-#if 0
-	for ( i = 0 ; i < 33; i ++)
-	{
-		if ( i % 2 )
-			cw_cmd ( CW_CONF_TEXT_INV_ON, NULL );
-		else 
-			cw_cmd ( CW_CONF_TEXT_INV_OFF, NULL );
-		sprintf ( buf, "%d\%", i );
-		cw_conf_vbar ( 1 ); 
-		cw_draw_vbar ( 4, i );
-		// Narrow
-		cw_conf_vbar ( 0 ); 
-		cw_draw_vbar ( 6, i );
-		cw_draw_vbar ( 7, i );
-
-		
-		cw_put_txt   ( 4,0,  buf );
-		sleep (1);
-	}	
-
-#endif
-/* Diagonal de (0,0 a (121,31) */
-#if 0 
-	for ( i=0; i<= 121; i++ )
-	{
-		cw_put_pixel ( i , ((i *32) / 122 ) -1 );
-	}
-#endif
-/* fill up all possitions with numbers */
-#if 0
-	cw_cmd ( CW_CMD_TXT_HOME, NULL );
-	write ( serial_fd, "home", 4 );
-	
-	for ( i=0; i< 20; i++ )
-		for ( j=0; j<4; j++)
-		{
-			sprintf ( buf, "%d", j );
-			cw_put_txt ( i, j, buf );
-		}
-
-	debug2_print ( "<<<<< EXIT <<<<<< %d\n", 0 );
-#endif
-	cw_destroy_menu_list ( menu1 );
+        deleteTimers();
 	cw_clear_dsp ();
 	close_port( serial_fd );
 

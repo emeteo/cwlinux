@@ -85,7 +85,6 @@ int cw_mpd_status(void)
     
     
     
-    
     mpd_status_free(status);
     return 0;
 }
@@ -130,6 +129,7 @@ void print_screen_1 (void)
     char  buffer[26];
     struct tm* tm_info;
     
+    cw_mpd_status();
     time((time_t *)&timer);
     tm_info = localtime((time_t *)&timer);
     strftime(buffer, 26, "%H:%M:%S", tm_info);
@@ -218,7 +218,7 @@ void onExpireTimerScreen ( sigval_t value )
 
 void onExpireTimerTransient ( sigval_t value )
 {
-    debug2_print("onExpireTimerScreen with value %d\n", value);
+    debug2_print("onExpireTimerTransient with value %d\n", value);
     cancelTimer ( timer_ids[TIMER_TRANSIENT]);
     launchTimer ( timer_ids[TIMER_SCREEN], 1000, 1000);
     ClearScreen=1;

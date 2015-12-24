@@ -48,8 +48,8 @@ int IncDecAlsaMasterVolume(int step)
 
     snd_mixer_selem_get_playback_volume (elem, SND_MIXER_SCHN_FRONT_RIGHT, &volume);
 
-    if (volume+step > max ) step=0;
-    if (volume+step < min ) step=0;
+    if (volume+step > max ) step=max-volume;
+    if (volume+step < min ) step=min-volume;
 
     snd_mixer_selem_set_playback_volume_all(elem, volume+step) ;
 

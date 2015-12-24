@@ -1,6 +1,7 @@
 
 #include <stdbool.h>
 #include <stdio.h>
+
 #include <sys/select.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -19,17 +20,37 @@
 
 // Numero de pantalla que se esta mostrando
 int DisplayedScreen;
-int ClearScreen=1;
+int ClearScreen;
+
+#define MAX_SCREENS  1
+void print_screen_1 (void);
+
+void (*print_screens [MAX_SCREENS] ) (void) = {print_screen_1};
+
 
 void print_screen_1 (void)
-{
-    static int value =0;
-    value = value +1;
+{   
+    timer_t timer;
+    char  buffer[26];
+    struct tm* tm_info;
+    
+    time(&timer);
+    tm_info = localtime(&timer);
+    strftime(buffer, 26, "%H:%M:%S", tm_info);
+    
     if (ClearScreen )
         cw_clear_dsp();
+    
+    /* Date */
+    cw_put_txt( 0, 0, buffer);
+    strftime(buffer, 26, "%d-%m-%Y", tm_info);
+    
+    cw_put_txt( 0, 1, buffer);
     cw_put_txt( 2, 2, "SCREEN 1");
     ClearScreen=0;
 }
+
+
 
 
 
@@ -40,8 +61,12 @@ void onExpireTimerVolume ( sigval_t value );
 #define TIMER_SCREEN 0
 #define TIMER_VOLUME 1
 
-    timer_t timer_ids[MAX_TIMERS];
-    void (*timer_functions[MAX_TIMERS]) (union sigval) = { onExpireTimerScreen,onExpireTimerVolume};
+
+timer_t timer_ids[MAX_TIMERS];
+
+void (*timer_functions[MAX_TIMERS]) (union sigval) = { onExpireTimerScreen,onExpireTimerVolume};
+
+
 void createTimers(void)
 {
     int i;
@@ -91,7 +116,7 @@ void onExpireTimerScreen ( sigval_t value )
 {
 
     debug2_print("onExpireTimerScreen with value %d\n", value);
-    print_screen_1();
+    print_screens[DisplayedScreen]();
     return;   
 }
 
@@ -149,7 +174,7 @@ void displayVolume ( int vol)
 	cw_draw_hbar( 2, 2, ( vol*120)/100);
 	printf("enviando texto : %s.\n", txt);
         cancelTimer(timer_ids[TIMER_SCREEN]);
-        launchTimer (timer_ids[TIMER_VOLUME], 5000,1000);
+        launchTimer (timer_ids[TIMER_VOLUME], 3000,1000);
         
 	return;
 }
@@ -183,7 +208,8 @@ int main ( int argc, char **argv )
 	cw_conf_vbar(1);
         /* Start with the screen 0 */
         DisplayedScreen =0;
-	/* Create the timers*/
+	int ClearScreen;
+        /* Create the timers*/
         createTimers();
         
 	/* Timer to display de screens */

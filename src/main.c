@@ -115,7 +115,7 @@ int cw_mpd_IncDecVolume(int step)
     
     new_volume = volume + step;
     if ( new_volume > 100 ) new_volume = 100;
-    if ( new_volume < 0 ) new_volume = 0;
+    if ( new_volume < 0 ) new_volume = 1;
 
     mpd_run_set_volume( mpd_conn, (unsigned)new_volume );
     
@@ -237,6 +237,7 @@ void displayTransientMsg (char * txt )
         cw_put_txt(1,1,txt);
         debug2_print("Transient msg: %s\n", txt);
         cancelTimer(timer_ids[TIMER_SCREEN]);
+        cancelTimer(timer_ids[TIMER_TRANSIENT]);
         launchTimer (timer_ids[TIMER_TRANSIENT], 3000,1000);
 }
 
@@ -249,6 +250,7 @@ void displayVolume ( int vol)
 	cw_draw_hbar( 2, 2, ( vol*120)/100);
 	debug2_print("enviando texto : %s.\n", txt);
         cancelTimer(timer_ids[TIMER_SCREEN]);
+        cancelTimer(timer_ids[TIMER_TRANSIENT]);
         launchTimer (timer_ids[TIMER_TRANSIENT], 3000,1000);
         
 	return;

@@ -7,9 +7,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include <alsa/asoundlib.h>
-#include <alsa/mixer.h>
-
 /* includes for timers */
 #include <signal.h>
 #include <time.h>
@@ -34,11 +31,13 @@ static struct mpd_connection *mpd_conn=NULL;
 
 int cw_mpd_connect(void)
 {
-    mpd_conn = mpd_connection_new("localhost", 6600, 0);
+    printf("cw_mpd_connect...");
+    mpd_conn = mpd_connection_new("moode", 6600, 1000);
     if ( mpd_conn == NULL){
         printf("Can't connect to mpd\n");
         return -1;
     }
+    printf("OK\n");
     return 0 ;
 }
 void cw_mpd_disconnect(void)
@@ -69,21 +68,27 @@ int cw_mpd_status(void)
 {
     struct mpd_status * status;
     struct mpd_song *song;
+    
+    
     if ( (mpd_conn == NULL) && (cw_mpd_connect() != 0 )) return -1;
     
+    printf("cw_mpd_status\n");
+#if 0    
     mpd_command_list_begin(mpd_conn, true);
     mpd_send_status(mpd_conn);
     mpd_send_current_song(mpd_conn);
     mpd_command_list_end(mpd_conn);
+    //status = mpd_recv_status(mpd_conn);
+#else
+    status=mpd_run_status(mpd_conn);    
+#endif    
     
-    status = mpd_recv_status(mpd_conn);
+    
     if (status == NULL ) 
     {
        printf("Can't recive status from mpd\n");
        return -1;
     }
-    
-    
     
     mpd_status_free(status);
     return 0;
@@ -225,40 +230,6 @@ void onExpireTimerTransient ( sigval_t value )
     return;   
 }
 
-/* Return the volume set */
-int IncDecAlsaMasterVolume(int step)
-{
-    long min, max, volume;
-    snd_mixer_t *handle;
-    snd_mixer_selem_id_t *sid;
-    const char *card = "default";
-    const char *selem_name = "Master";
-
-    snd_mixer_open(&handle, 0);
-    snd_mixer_attach(handle, card);
-    snd_mixer_selem_register(handle, NULL, NULL);
-    snd_mixer_load(handle);
-
-    snd_mixer_selem_id_alloca(&sid);
-    snd_mixer_selem_id_set_index(sid, 0);
-    snd_mixer_selem_id_set_name(sid, selem_name);
-    snd_mixer_elem_t* elem = snd_mixer_find_selem(handle, sid);
-
-    snd_mixer_selem_get_playback_volume_range(elem, &min, &max);
-
-    snd_mixer_selem_get_playback_volume (elem, SND_MIXER_SCHN_FRONT_RIGHT, &volume);
-
-    if (volume+step > max ) step=max-volume;
-    if (volume+step < min ) step=min-volume;
-
-    snd_mixer_selem_set_playback_volume_all(elem, volume+step) ;
-
-    snd_mixer_close(handle);
-
-    int vol = ((volume+step-min)*100) /(max-min);
-    debug2_print( "****** Volumen %d\n", vol);
-    return vol;
-}
 
 void displayTransientMsg (char * txt )
 {

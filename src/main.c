@@ -323,21 +323,21 @@ int main ( int argc, char **argv )
 						switch ( buf[0] )
 						{
 							case 'A': /* up */ 
-								currentVolume = cw_mpd_IncDecVolume(+100);
+								currentVolume = cw_mpd_IncDecVolume(+1);
 
 								break;
 							case 'B': /* down */
-								currentVolume=cw_mpd_IncDecVolume(-100);
+								currentVolume=cw_mpd_IncDecVolume(-1);
 								break;
 
 							case 'C': /* Left */
 
-								currentVolume=cw_mpd_IncDecVolume(-400);
+								currentVolume=cw_mpd_IncDecVolume(-20);
 
 								  break;
 							case 'D': /* Right */ 
 
-								currentVolume=cw_mpd_IncDecVolume(+400);
+								currentVolume=cw_mpd_IncDecVolume(+20);
 								 break;
 							case 'E': /* Selected */
                                                                 displayTransientMsg("Playing...");

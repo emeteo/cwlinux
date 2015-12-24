@@ -34,8 +34,8 @@ void print_screen_1 (void)
     char  buffer[26];
     struct tm* tm_info;
     
-    time(&timer);
-    tm_info = localtime(&timer);
+    time((time_t *)&timer);
+    tm_info = localtime((time_t *)&timer);
     strftime(buffer, 26, "%H:%M:%S", tm_info);
     
     if (ClearScreen )

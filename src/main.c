@@ -168,7 +168,7 @@ int IncDecAlsaMasterVolume(int step)
 void displayVolume ( int vol)
 {
 	char txt[255];	
-
+        cw_clear_dsp();
 	sprintf(txt,"%d %%",vol);
 	cw_put_txt ( 1 , 1, txt);
 	cw_draw_hbar( 2, 2, ( vol*120)/100);

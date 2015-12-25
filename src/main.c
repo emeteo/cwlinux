@@ -7,6 +7,11 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <assert.h>
+
+/* Strings */
+
+#include <string.h>
 /* includes for timers */
 #include <signal.h>
 #include <time.h>
@@ -21,6 +26,15 @@
 // Numero de pantalla que se esta mostrando
 int DisplayedScreen;
 int ClearScreen;
+struct cw_mpd_status {
+  int updated;
+  int volume;
+  int song_id;
+  char artist[255];
+  char title [255];
+  enum mpd_state state; 
+    
+} MpdStatus;
 
 #define MAX_SCREENS  1
 void print_screen_1 (void);
@@ -67,12 +81,12 @@ int cw_mpd_send_play(void)
 int cw_mpd_status(void)
 {
     struct mpd_status * status;
-    struct mpd_song *song;
+    
     
     
     if ( (mpd_conn == NULL) && (cw_mpd_connect() != 0 )) return -1;
     
-    printf("cw_mpd_status\n");
+    debug_print("cw_mpd_status\n");
 #if 0    
     mpd_command_list_begin(mpd_conn, true);
     mpd_send_status(mpd_conn);
@@ -82,8 +96,10 @@ int cw_mpd_status(void)
 #else
     status=mpd_run_status(mpd_conn);    
 #endif    
-    
-    
+    MpdStatus.updated = 1;
+    MpdStatus.volume = mpd_status_get_volume( status );
+    MpdStatus.state = mpd_status_get_state ( status );
+    MpdStatus.song_id = mpd_status_get_song_id ( status );
     if (status == NULL ) 
     {
        printf("Can't recive status from mpd\n");
@@ -93,6 +109,27 @@ int cw_mpd_status(void)
     mpd_status_free(status);
     return 0;
 }
+
+int cw_mpd_get_song(void)
+{
+    struct mpd_song *song;
+    char *result;
+    debug_print("cw_mpd_get_song\n");
+    
+    if ( (mpd_conn == NULL) && (cw_mpd_connect() != 0 )) return -1;
+    
+    song = mpd_run_current_song ( mpd_conn );
+    
+    if ( song == NULL ) return -1;
+    
+    strncpy ( MpdStatus.artist, mpd_song_get_tag ( song,MPD_TAG_ARTIST ,0), sizeof(MpdStatus.artist));
+    strncpy ( MpdStatus.title, mpd_song_get_tag ( song,MPD_TAG_TITLE ,0), sizeof(MpdStatus.artist));
+    
+    mpd_song_free (song);
+    
+    return 0;
+}
+
 
 /* Return the volume set */
 int cw_mpd_IncDecVolume(int step)
@@ -120,7 +157,6 @@ int cw_mpd_IncDecVolume(int step)
     mpd_run_set_volume( mpd_conn, (unsigned)new_volume );
     
     mpd_status_free(status);
-    return volume;
     
     debug2_print( "****** Volumen %d\n", new_volume);
     return new_volume;
@@ -131,23 +167,50 @@ int cw_mpd_IncDecVolume(int step)
 void print_screen_1 (void)
 {   
     timer_t timer;
-    char  buffer[26];
+    size_t len_time, len_date;
+    char  str_time[22];
+    char  status_line1 [22];
+    char  status_line2 [22];
     struct tm* tm_info;
     
-    cw_mpd_status();
-    time((time_t *)&timer);
-    tm_info = localtime((time_t *)&timer);
-    strftime(buffer, 26, "%H:%M:%S", tm_info);
-    
+    status_line1[0]='\0';
+    status_line2[0]='\0';
     if (ClearScreen )
         cw_clear_dsp();
     
-    /* Date */
-    cw_put_txt( 0, 0, buffer);
-    strftime(buffer, 26, "%d-%m-%Y", tm_info);
+    cw_mpd_status();
     
-    cw_put_txt( 0, 1, buffer);
-    cw_put_txt( 2, 2, "SCREEN 1");
+    /* Manager the first line time and date */
+    
+    time((time_t *)&timer);
+    tm_info = localtime((time_t *)&timer);
+    
+    strftime(str_time, sizeof(str_time), "%H:%M:%S  %d-%m-%Y", tm_info);
+    
+    debug2_print("#####(%d): %s\n",sizeof(str_time), str_time);
+    cw_put_txt( 20-strlen(str_time), 0, str_time);
+
+    /* Manager the second and third line time and date */
+    if ( MpdStatus.updated ) {
+            switch ( MpdStatus.state )
+            {
+                case MPD_STATE_PLAY: 
+                    cw_mpd_get_song();
+                    snprintf(status_line1, 22,MpdStatus.artist); 
+                    snprintf(status_line2, 22,MpdStatus.title); 
+                    break;
+                case MPD_STATE_STOP: 
+                    snprintf(status_line1, 22," STOPPED ||"); 
+                    status_line2[0]='\0';
+                    break;
+                default: snprintf(status_line1, 22," ??? UNKNOWN ???"); 
+                
+            }
+            debug2_print("#####: %s\n",status_line1);
+            debug2_print("#####: %s\n",status_line2);
+            cw_put_txt( (20-strlen(status_line1))/2, 2, status_line1);
+            cw_put_txt( (20-strlen(status_line2))/2, 3, status_line2);
+    }
     ClearScreen=0;
 }
 
@@ -191,7 +254,7 @@ void deleteTimers (void )
     timer_delete( timer_ids[0] );
 }
 
-void launchTimer( timer_t id, int msecs, int interval )
+void launchTimer( int t, int msecs, int interval )
 {
         struct itimerspec spec;
         
@@ -200,33 +263,41 @@ void launchTimer( timer_t id, int msecs, int interval )
         spec.it_value.tv_sec        = msecs / 1000 ;
         spec.it_value.tv_nsec       = msecs % 1000;
         
-        if ( timer_settime(id, CLOCK_REALTIME , &spec, NULL) !=0) 
-            debug2_print ( "failure timer_settime: %d - %d\n", msecs, interval);
+        if ( timer_settime(timer_ids[t], CLOCK_REALTIME , &spec, NULL) !=0) 
+            debug2_print ( "failure timer_settime[%d]: %d - %d\n",t, msecs, interval);
         else
-            debug2_print ( "timer_settime OK %d - %d \n", msecs, interval );
+            debug2_print ( "timer_settime [%d] OK %d - %d \n", t, msecs, interval );
         return;
 }
 
-void cancelTimer ( timer_t id )
+void cancelTimer ( int t)
 {
-    launchTimer (id, 0, 0);
+    launchTimer (t, 0, 0);
     return;
 }
 
+static int in_timer =0;
 void onExpireTimerScreen ( sigval_t value )
 {
-
-    debug2_print("onExpireTimerScreen with value %d\n", value);
+    if (in_timer) return;
+    in_timer++;
+    
+    
+    debug2_print("onExpireTimerScreen in %d\n", in_timer);
     print_screens[DisplayedScreen]();
+    in_timer--;
     return;   
 }
 
 void onExpireTimerTransient ( sigval_t value )
 {
-    debug2_print("onExpireTimerTransient with value %d\n", value);
-    cancelTimer ( timer_ids[TIMER_TRANSIENT]);
-    launchTimer ( timer_ids[TIMER_SCREEN], 1000, 1000);
+    if (in_timer) return;
+    in_timer++;
+    debug2_print("onExpireTimerTransient with %d\n", in_timer);
+    cancelTimer ( TIMER_TRANSIENT );
+    launchTimer ( TIMER_SCREEN, 1000, 1000);
     ClearScreen=1;
+    in_timer--;
     return;   
 }
 
@@ -235,10 +306,10 @@ void displayTransientMsg (char * txt )
 {
         cw_clear_dsp();
         cw_put_txt(1,1,txt);
-        debug2_print("Transient msg: %s\n", txt);
-        cancelTimer(timer_ids[TIMER_SCREEN]);
-        cancelTimer(timer_ids[TIMER_TRANSIENT]);
-        launchTimer (timer_ids[TIMER_TRANSIENT], 3000,1000);
+        debug2_print("********************Transient msg: %s********************\n", txt);
+        cancelTimer(TIMER_SCREEN);
+        cancelTimer(TIMER_TRANSIENT);
+        launchTimer (TIMER_TRANSIENT, 1500,1500);
 }
 
 void displayVolume ( int vol)
@@ -246,12 +317,12 @@ void displayVolume ( int vol)
 	char txt[255];	
         cw_clear_dsp();
 	sprintf(txt,"%d %%",vol);
-	cw_put_txt ( 1 , 1, txt);
-	cw_draw_hbar( 2, 2, ( vol*120)/100);
+	cw_put_txt ( 0 , 1, txt);
+	cw_draw_hbar( 2, 2, ( vol*100)/100);
 	debug2_print("enviando texto : %s.\n", txt);
-        cancelTimer(timer_ids[TIMER_SCREEN]);
-        cancelTimer(timer_ids[TIMER_TRANSIENT]);
-        launchTimer (timer_ids[TIMER_TRANSIENT], 3000,1000);
+        cancelTimer(TIMER_SCREEN);
+        cancelTimer(TIMER_TRANSIENT);
+        launchTimer (TIMER_TRANSIENT, 1000,1000);
         
 	return;
 }
@@ -275,9 +346,10 @@ int main ( int argc, char **argv )
 		return -1;
 	}
 
-	cw_auto_key_hold ( true );	
-	cw_text_invert   ( false);	
-
+	cw_auto_key_hold    ( true );	
+	cw_text_invert      ( false);	
+        cw_text_auto_wrap   ( false );
+        cw_text_auto_scroll ( false );
 
 	cw_clear_dsp ();
 
@@ -290,7 +362,7 @@ int main ( int argc, char **argv )
         createTimers();
         
 	/* Timer to display de screens */
-        launchTimer (timer_ids[TIMER_SCREEN], 1000,1000);
+        launchTimer (TIMER_SCREEN, 1000,1000);
         
 	currentVolume=cw_mpd_IncDecVolume(0);
 	
@@ -326,33 +398,37 @@ int main ( int argc, char **argv )
 						{
 							case 'A': /* up */ 
 								currentVolume = cw_mpd_IncDecVolume(+1);
+                                                                displayVolume(currentVolume);
 
 								break;
 							case 'B': /* down */
 								currentVolume=cw_mpd_IncDecVolume(-1);
+                                                                displayVolume(currentVolume);
 								break;
 
 							case 'C': /* Left */
 
 								currentVolume=cw_mpd_IncDecVolume(-20);
+                                                                displayVolume(currentVolume);
 
 								  break;
 							case 'D': /* Right */ 
 
 								currentVolume=cw_mpd_IncDecVolume(+20);
+                                                                displayVolume(currentVolume);
 								 break;
-							case 'E': /* Selected */
+							case 'E': /* Confirm */
                                                                 displayTransientMsg("Playing...");
                                                                 cw_mpd_send_play();
 								break;
-							case 'F': /* X */
+							case 'F': /* Cancel */
                                                                 displayTransientMsg("Stopping...");
                                                                 cw_mpd_send_stop();
 
 								break;
 							default: break;
 						}
-						displayVolume(currentVolume);
+						
 						printf ( "%d - %s \n", buf[0], buf);
 					} else
 						printf ( "Received bad keys: %d - %s \n", buf[0], buf);

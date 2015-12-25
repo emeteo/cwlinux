@@ -1,7 +1,7 @@
 #include <stdbool.h>
 
 #define BAUDRATE B19200
-#define SERIALDEVICE "/dev/ttyUSB0"
+#define SERIALDEVICE "/dev/ttyUSB3"
 
 
 #define CW_CMD_MODEL 48
@@ -12,9 +12,15 @@
 #define CW_CMD_BRIGHTNESS 64
 
 
-#define CW_CMD_TXT_HOME 72
-#define CW_CMD_TXT_INS_POINT 71
+#define CW_CMD_AUTOWRAP_ON 67
+#define CW_CMD_AUTOWRAP_OFF 68
 
+#define CW_CMD_AUTOSCROLL_ON 81
+#define CW_CMD_AUTOSCROLL_OFF 82
+
+
+#define CW_CMD_TXT_INS_POINT 71
+#define CW_CMD_TXT_HOME 72
 
 #define CW_CONF_TEXT_INV_ON 102
 #define CW_CONF_TEXT_INV_OFF 103
@@ -38,6 +44,9 @@ void close_port ( int fd );
 
 
 int cw_clear_dsp ( void );
+
+int cw_text_auto_scroll ( bool on);
+int cw_text_auto_wrap ( bool on);
 
 int cw_auto_key_hold( bool on );
 

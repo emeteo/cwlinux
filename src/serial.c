@@ -8,6 +8,9 @@
 #include "debug.h"
 #include "serial.h"
 
+#undef DEBUG
+
+#define DEBUG 0
 
 char cmd[255];
 static int serial_fd;
@@ -161,7 +164,22 @@ int cw_text_invert ( bool on )
 	return 0;
 
 }
+int cw_text_auto_wrap ( bool on)
+{
+	debug2_print ( ">>>>>> ENTER >>>> %d\n", 0 );
+	cw_cmd ( on ? CW_CMD_AUTOWRAP_ON: CW_CMD_AUTOWRAP_OFF, NULL );
+	debug2_print ( "<<<< EXIT <<<< %d\n", 0);
+	return 0;
 
+}
+int cw_text_auto_scroll ( bool on)
+{
+	debug2_print ( ">>>>>> ENTER >>>> %d\n", 0 );
+	cw_cmd ( on ? CW_CMD_AUTOSCROLL_ON: CW_CMD_AUTOSCROLL_OFF, NULL );
+	debug2_print ( "<<<< EXIT <<<< %d\n", 0);
+	return 0;
+
+}
 int cw_put_txt ( int col, int row, char* txt )
 {
 	int params[2];

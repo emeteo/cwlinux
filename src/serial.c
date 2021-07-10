@@ -192,6 +192,11 @@ int cw_put_txt ( int col, int row, char* txt )
 		return -1;
 
 	len = strlen ( txt );
+	if (( len + col ) > 20 ) {
+		len = 20-col;
+	}
+
+	printf ("[%d-%d]: %s - %d\n", col, row, txt, len);
 
 	params[0] = col;
 	params[1] = row;

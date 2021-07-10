@@ -46,7 +46,7 @@ static struct mpd_connection *mpd_conn=NULL;
 int cw_mpd_connect(void)
 {
     printf("cw_mpd_connect...");
-    mpd_conn = mpd_connection_new("moode", 6600, 1000);
+    mpd_conn = mpd_connection_new("soundserver", 6600, 1000);
     if ( mpd_conn == NULL){
         printf("Can't connect to mpd\n");
         return -1;
@@ -123,7 +123,7 @@ int cw_mpd_get_song(void)
     if ( song == NULL ) return -1;
     
     strncpy ( MpdStatus.artist, mpd_song_get_tag ( song,MPD_TAG_ARTIST ,0), sizeof(MpdStatus.artist));
-    strncpy ( MpdStatus.title, mpd_song_get_tag ( song,MPD_TAG_TITLE ,0), sizeof(MpdStatus.artist));
+    strncpy ( MpdStatus.title, mpd_song_get_tag ( song,MPD_TAG_TITLE ,0), sizeof(MpdStatus.title));
     
     mpd_song_free (song);
     
@@ -172,6 +172,9 @@ void print_screen_1 (void)
     char  status_line1 [22];
     char  status_line2 [22];
     struct tm* tm_info;
+    static int pos_ch=0;
+    char progress[5]="\\|/-";
+    char ch[2]; 
     
     status_line1[0]='\0';
     status_line2[0]='\0';
@@ -191,7 +194,7 @@ void print_screen_1 (void)
     cw_put_txt( 20-strlen(str_time), 0, str_time);
 
     /* Manager the second and third line time and date */
-    if ( MpdStatus.updated ) {
+    if ( 1 ||  MpdStatus.updated ) {
             switch ( MpdStatus.state )
             {
                 case MPD_STATE_PLAY: 
@@ -208,8 +211,14 @@ void print_screen_1 (void)
             }
             debug2_print("#####: %s\n",status_line1);
             debug2_print("#####: %s\n",status_line2);
+
+	    pos_ch=pos_ch>2? 0:pos_ch+1;
+	    ch[0]=progress[pos_ch];
+	    ch[1]='\0';
+
+	    cw_put_txt ( 1,2, &ch[0]); 
             cw_put_txt( (20-strlen(status_line1))/2, 2, status_line1);
-            cw_put_txt( (20-strlen(status_line2))/2, 3, status_line2);
+            cw_put_txt( (20-strlen(status_line1))/2, 3, status_line2);
     }
     ClearScreen=0;
 }

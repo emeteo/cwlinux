@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-I. -Wall
+CFLAGS=-I. -Wall -I/usr/lib/x86_64-linux-gnu
 IDIR=.
 LDFLAGS=-lrt -l mpdclient
 SOURCES= debug.h main.c menu.c menu.h serial.c serial.h
@@ -9,7 +9,7 @@ EXE=cwlinux
 all: $(SOURCES) $(EXE)
 
 $(EXE): $(OBJ)
-	$(CC) $(LDFLAGS) $(OBJ) -o $@
+	$(CC) $(OBJ) -o $@ $(LDFLAGS) 
 
 %.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
